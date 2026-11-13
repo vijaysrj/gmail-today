@@ -232,10 +232,25 @@ export class GmailSource implements MailSource {
 
   private async call<T>(path: string, init: RequestInit = {}, retry = true, attempt = 0): Promise<T> {
     const token = await this.auth.token()
-    const res = await fetch(path.startsWith('https://') ? path : `${API}${path}`, {
-      ...init,
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers ?? {}) },
-    })
+    let res: Response
+    try {
+      res = await fetch(path.startsWith('https://') ? path : `${API}${path}`, {
+        ...init,
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers ?? {}) },
+      })
+    } catch {
+      // Network dropped (Safari says "Load failed"). Reads are safe to repeat; a send is not.
+      const reading = !init.method || init.method === 'GET'
+      if (reading && attempt < 2) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)))
+        return this.call(path, init, retry, attempt + 1)
+      }
+      throw new Error(
+        reading
+          ? "Couldn't reach Gmail. Check your connection and try again."
+          : "Couldn't reach Gmail, so it may not have gone out. Check Sent before trying again.",
+      )
+    }
     if (res.status === 401 && retry) {
       this.auth.forget()
       return this.call(path, init, false, attempt)
@@ -363,7 +378,19 @@ export class GmailSource implements MailSource {
 
   async send(d: Draft) {
     const mime = await buildMime(d)
-    // Upload endpoint: allows messages up to 35 MB (attachments), unlike the 5 MB JSON endpoint.
+    // Normal JSON endpoint first: it returns readable errors to the browser (CORS),
+    // which the upload endpoint does not, so Safari only ever said "Load failed".
+    const raw = btoa(mime).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    try {
+      await this.call('/messages/send', {
+        method: 'POST',
+        body: JSON.stringify(d.threadId ? { raw, threadId: d.threadId } : { raw }),
+      })
+      return
+    } catch (e) {
+      if (!/\b413\b|too large|exceeds/i.test(String(e))) throw e
+    }
+    // Very large messages: the upload endpoint takes up to 35 MB.
     const boundary = `gt_up_${Date.now()}`
     const body = [
       `--${boundary}`,
