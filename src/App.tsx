@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { Attachment, Draft, MailSource, Person, Thread, ThreadSummary } from './types'
 import { DemoSource } from './demo'
 import { GmailSource, MAX_ATTACH_BYTES, ServerAuth } from './gmail'
@@ -419,16 +420,35 @@ function Empty({ title, body }: { title: string; body: string }) {
 
 function Menu({ me, demo, onSignOut }: { me: Person | null; demo: boolean; onSignOut: () => void }) {
   const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
   return (
     <div className="menu">
-      <button className="me" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label="Account">
+      <button className="me" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="menu" aria-label="Account and sign out" title="Account">
         {me ? <Avatar p={me} size={34} /> : <span className="avatar" style={{ width: 34, height: 34 }} />}
       </button>
-      {open && (
-        <div className="menu-pop" onMouseLeave={() => setOpen(false)}>
-          <p className="menu-email">{demo ? 'Sample mailbox' : me?.email}</p>
-          <button onClick={onSignOut}>{demo ? 'Leave sample mail' : 'Sign out'}</button>
-        </div>
+      {open && createPortal(
+        <>
+          <div className="menu-backdrop" onClick={() => setOpen(false)} aria-hidden />
+          <div className="menu-pop" role="menu">
+            <div className="menu-who">
+              {me && <Avatar p={me} size={40} />}
+              <div className="menu-who-text">
+                <strong>{demo ? 'Sample mailbox' : 'Signed in as'}</strong>
+                <span>{demo ? 'Nothing here is real' : me?.email}</span>
+              </div>
+            </div>
+            <button className="signout" role="menuitem" onClick={() => { setOpen(false); onSignOut() }}>
+              <SignOutIcon /> {demo ? 'Leave sample mail' : 'Sign out'}
+            </button>
+            <button className="menu-cancel" onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+        </>,
+        document.body,
       )}
     </div>
   )
@@ -670,6 +690,7 @@ const PenIcon = I(<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 
 const CheckIcon = I(<path d="M20 6 9 17l-5-5" />)
 const BackIcon = I(<path d="M15 18l-6-6 6-6" />)
 const ReplyIcon = I(<><path d="M9 17 4 12l5-5" /><path d="M20 18v-2a4 4 0 0 0-4-4H4" /></>)
+const SignOutIcon = I(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></>)
 const ClipIcon = I(<path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5" />)
 const FileIcon = I(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /></>)
 const SendIcon = I(<><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></>)
