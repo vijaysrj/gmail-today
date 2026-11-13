@@ -9,3 +9,5 @@ A calm, private Gmail client that shows only **today's mail**, plus **Still wait
 - `?demo` shows sample mail
 
 See **SETUP.md** for the Google Cloud and Vercel setup.
+
+Pushes to `main` deploy automatically on Vercel.
