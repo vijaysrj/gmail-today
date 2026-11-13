@@ -38,6 +38,10 @@ In Vercel, open **gmail-today → Settings → Environment Variables** and add:
 - **iPhone:** in Safari tap **Share → Add to Home Screen**. **Android:** in Chrome tap **⋮ → Add to Home screen** (or **Install app**).
 - You stay signed in on that device until you choose **Sign out** from the avatar menu or remove access at https://myaccount.google.com/permissions.
 
+## Updates
+
+The Vercel project is connected to the GitHub repository `vijaysrj/gmail-today`. Every push to `main` deploys to https://gmail-today.vercel.app automatically.
+
 ## Running it on your computer (optional)
 
 ```bash
